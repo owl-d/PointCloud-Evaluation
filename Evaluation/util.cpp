@@ -209,3 +209,18 @@ double percentile(std::vector<double> a, double q01_to_99) {
     double w = rank - i;
     return (1.0 - w) * a[i] + w * a[j];
 }
+
+double rmse_from_dist_sq_mean(double mean_sq) {
+    return (mean_sq <= 0.0) ? 0.0 : std::sqrt(mean_sq);
+}
+
+double rmse_trim95(std::vector<double> dists_mm) {
+    if (dists_mm.empty()) return 0.0;
+    std::sort(dists_mm.begin(), dists_mm.end());
+    const size_t n = dists_mm.size();
+    const size_t k = static_cast<size_t>(std::floor(0.95 * (n - 1))); // 95th index
+    long double s2 = 0.0L;
+    for (size_t i = 0; i <= k; ++i) s2 += (long double)dists_mm[i] * dists_mm[i];
+    const long double mean_sq = s2 / (k + 1);
+    return std::sqrt((double)mean_sq);
+}

@@ -100,7 +100,97 @@ PRF computePRF_at_tau_point2plane(const pCloudPtr& P, const pCloudPtr& G,
     return { Precision, Recall, F };
 }
 
-Chamfer chamfer_point_to_point(const std::vector<double>& dP2G, const std::vector<double>& dG2P){
+RMSE computeRMSE_point2point(const pCloudPtr& P, const pCloudPtr& G, double max_corr_mm) {
+    RMSE out{};
+    if (!P || !G || P->empty() || G->empty()) return out;
+
+    pcl::KdTreeFLANN<point> kdtG; kdtG.setInputCloud(G);
+    pcl::KdTreeFLANN<point> kdtP; kdtP.setInputCloud(P);
+    std::vector<int> idx(1); std::vector<float> sq(1);
+
+    // P->G
+    long double s2_PG = 0.0L;
+    std::vector<double> keep_PG; keep_PG.reserve(P->size());
+    for (const auto& p : P->points) {
+        if (kdtG.nearestKSearch(p, 1, idx, sq) > 0) {
+            double d = std::sqrt((double)sq[0]); // mm
+            if (d <= max_corr_mm) { s2_PG += d * d; keep_PG.push_back(d); }
+        }
+    }
+    out.N_P2G = keep_PG.size();
+    out.P2G = (out.N_P2G ? std::sqrt((double)(s2_PG / out.N_P2G)) : 0.0);
+
+    // G->P
+    long double s2_GP = 0.0L;
+    std::vector<double> keep_GP; keep_GP.reserve(G->size());
+    for (const auto& g : G->points) {
+        if (kdtP.nearestKSearch(g, 1, idx, sq) > 0) {
+            double d = std::sqrt((double)sq[0]); // mm
+            if (d <= max_corr_mm) { s2_GP += d * d; keep_GP.push_back(d); }
+        }
+    }
+    out.N_G2P = keep_GP.size();
+    out.G2P = (out.N_G2P ? std::sqrt((double)(s2_GP / out.N_G2P)) : 0.0);
+
+    // symmetric
+    if (out.N_P2G && out.N_G2P) {
+        const long double mean_sq_sym = 0.5L * ((s2_PG / out.N_P2G) + (s2_GP / out.N_G2P));
+        out.sym = std::sqrt((double)mean_sq_sym);
+    }
+    return out;
+}
+
+RMSE computeRMSE_point2plane(const pCloudPtr& P, const pCloudPtr& G, const v3f& nP, const v3f& nG, double max_corr_mm){
+    RMSE out{};
+    if (!P || !G || P->empty() || G->empty()) return out;
+
+    pcl::KdTreeFLANN<point> kdtG; kdtG.setInputCloud(G);
+    pcl::KdTreeFLANN<point> kdtP; kdtP.setInputCloud(P);
+    std::vector<int> idx(1); std::vector<float> sq(1);
+
+    // P->G (use G normals)
+    long double s2_PG = 0.0L;
+    std::vector<double> keep_PG; keep_PG.reserve(P->size());
+    for (const auto& p : P->points) {
+        if (kdtG.nearestKSearch(p, 1, idx, sq) > 0) {
+            const int j = idx[0];
+            const auto& g = G->points[j];
+            Eigen::Vector3f n = (j < (int)nG.size() ? nG[j] : Eigen::Vector3f::Zero());
+            Eigen::Vector3f diff(p.x - g.x, p.y - g.y, p.z - g.z);
+            double d_perp = (n.norm() > 1e-6f) ? std::abs(n.dot(diff))
+                : std::sqrt((double)sq[0]); // fallback p2p
+            if (d_perp <= max_corr_mm) { s2_PG += d_perp * d_perp; keep_PG.push_back(d_perp); }
+        }
+    }
+    out.N_P2G = keep_PG.size();
+    out.P2G = (out.N_P2G ? std::sqrt((double)(s2_PG / out.N_P2G)) : 0.0);
+
+    // G->P (use P normals)
+    long double s2_GP = 0.0L;
+    std::vector<double> keep_GP; keep_GP.reserve(G->size());
+    for (const auto& g : G->points) {
+        if (kdtP.nearestKSearch(g, 1, idx, sq) > 0) {
+            const int iP = idx[0];
+            const auto& p = P->points[iP];
+            Eigen::Vector3f n = (iP < (int)nP.size() ? nP[iP] : Eigen::Vector3f::Zero());
+            Eigen::Vector3f diff(g.x - p.x, g.y - p.y, g.z - p.z);
+            double d_perp = (n.norm() > 1e-6f) ? std::abs(n.dot(diff))
+                : std::sqrt((double)sq[0]); // fallback p2p
+            if (d_perp <= max_corr_mm) { s2_GP += d_perp * d_perp; keep_GP.push_back(d_perp); }
+        }
+    }
+    out.N_G2P = keep_GP.size();
+    out.G2P = (out.N_G2P ? std::sqrt((double)(s2_GP / out.N_G2P)) : 0.0);
+
+    // symmetric
+    if (out.N_P2G && out.N_G2P) {
+        const long double mean_sq_sym = 0.5L * ((s2_PG / out.N_P2G) + (s2_GP / out.N_G2P));
+        out.sym = std::sqrt((double)mean_sq_sym);
+    }
+    return out;
+}
+
+Chamfer chamfer_point_to_point(const std::vector<double>& dP2G, const std::vector<double>& dG2P) {
     double mP = mean(dP2G);
     double mG = mean(dG2P);
     double mP2 = mean_sq(dP2G);

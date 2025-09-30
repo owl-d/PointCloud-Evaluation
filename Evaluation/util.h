@@ -43,6 +43,15 @@ struct PRF {
     double fscore;    // [0,1]
 };
 
+struct RMSE {
+    double P2G = 0.0;
+    double G2P = 0.0;
+    double sym = 0.0;
+
+    size_t N_P2G = 0;
+    size_t N_G2P = 0;
+};
+
 struct Chamfer {
     double P2G;
     double G2P;
@@ -66,3 +75,4 @@ double estimate_nn_spacing(const pCloudPtr& cloud, int k_for_spacing = 6);
 double mean(const std::vector<double>& a);
 double mean_sq(const std::vector<double>& a);
 double percentile(std::vector<double> a, double q01_to_99);
+double rmse_from_dist_sq_mean(double mean_sq);

@@ -32,12 +32,8 @@ void viewer(pCloudPtr& G, pCloudPtr& P) {
 
 int main() {
 
-    //string trg_path = "C:/Users/doyu/Desktop/Evaluation/data/003_gt/03 top/0_.obj"; //all,top,bottom
-    string trg_path = "C:/Users/doyu/Desktop/Evaluation/data/003_gt/ply/top.ply"; //all,top,bottom
-	//string src_path = "C:/Users/doyu/Desktop/Evaluation/data/2025_08_29_14_24/scan_1_aligned.pcd"
-    string src_path = "C:/Users/doyu/Desktop/Evaluation/data/2025_08_27-28/0827_v2v_autoscanning_4/result/4_aligned_crop.ply";
-    //string src_path = "C:/Users/doyu/Desktop/Evaluation/data/2025_08_27-28/0827_v2v_autoscanning_5_initI/result/5_aligned_crop.ply";
-    //string src_path = "C:/Users/doyu/Desktop/Evaluation/data/2025_08_27-28/0828_v2v_autoscanning_1_cnt/result/1_aligned_crop.ply";
+    string trg_path = "C:/Users/doyu/Desktop/Evaluation/data/top_tf.ply";
+    string src_path = "C:/Users/doyu/Desktop/Evaluation/data/result_1.ply";
 
     // parameter
     vector<double> taus_mm = { 5, 1, 0.5 };
@@ -135,7 +131,19 @@ int main() {
         cout << "  F-score@tau   : " << r.fscore << endl;
     }
 
-    cout << "\n--- 3) Chamfer Distance point-to-point ---\n";
+    cout << "\n--- 3) RMSE point-to-point ---\n";
+    RMSE r_p2p = computeRMSE_point2point(P, G, 5.0);
+    std::cout << "  P->G: " << r_p2p.P2G << " mm  (N=" << r_p2p.N_P2G << ")\n";
+    std::cout << "  G->P: " << r_p2p.G2P << " mm  (N=" << r_p2p.N_G2P << ")\n";
+    std::cout << "  sym : " << r_p2p.sym << " mm\n";
+
+    cout << "\n--- 4) RMSE point-to-plane ---\n";
+    RMSE r_p2pl = computeRMSE_point2plane(P, G, nP, nG, 5.0);
+    std::cout << "  P->G: " << r_p2pl.P2G << " mm  (N=" << r_p2pl.N_P2G << ")\n";
+    std::cout << "  G->P: " << r_p2pl.G2P << " mm  (N=" << r_p2pl.N_G2P << ")\n";
+    std::cout << "  sym : " << r_p2pl.sym << " mm\n";
+
+    cout << "\n--- 5) Chamfer Distance point-to-point ---\n";
     Chamfer c = chamfer_point_to_point(d_P2G, d_G2P);
     std::cout << "  P->G mean    : " << c.P2G << " mm\n";
     std::cout << "  G->P mean    : " << c.G2P << " mm\n";
@@ -143,7 +151,7 @@ int main() {
     //std::cout << "  CD-L2^2 (avg)  : " << c.L2sq_avg << " mm^2\n";
     std::cout << "  CD-RMSE (sym) : " << c.RMSE_sym << " mm\n";
 
-    cout << "\n--- 4) Chamfer Distance point-to-plane ---\n";
+    cout << "\n--- 6) Chamfer Distance point-to-plane ---\n";
     Chamfer c_perp = chamfer_point_to_plane(dP2G_perp, dG2P_perp);
     std::cout << "  P->G mean    : " << c_perp.P2G << " mm\n";
     std::cout << "  G->P mean    : " << c_perp.G2P << " mm\n";
@@ -151,7 +159,7 @@ int main() {
     //std::cout << "  CD-L2^2 (avg)  : " << c_perp.L2sq_avg << " mm^2\n";
     std::cout << "  CD-RMSE (sym) : " << c_perp.RMSE_sym << " mm\n";
 
-    cout << "\n--- 5) Hausdorff-95% (robust) ---\n";
+    cout << "\n--- 7) Hausdorff-95% (robust) ---\n";
     double p95_P2G = percentile(d_P2G, 95.0);
     double p95_G2P = percentile(d_G2P, 95.0);
     double H95 = std::max(p95_P2G, p95_G2P);
